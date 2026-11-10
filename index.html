@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html>
+<head>
+ <base target="_top">
+  <meta name="viewport"
+        content="width=device-width, initial-scale=1">
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 450px;
+      margin: 20px auto;
+      padding: 15px;
+    }
+    input, button {
+      box-sizing: border-box;
+      width: 100%;
+      padding: 14px;
+      margin: 8px 0 16px;
+      font-size: 18px;
+    }
+    button {
+      background: #176b42;
+      color: white;
+      border: 0;
+      border-radius: 6px;
+    }
+    #reader { width: 100%; }
+  </style>
+</head>
+<body>
+  <h2>Hoots Plumbing Inventory</h2>
+  <div id="reader"></div>
+
+  <button type="button" onclick="startScanner()">
+    Scan Barcode
+  </button>
+<input type="file" id="barcodePhoto" accept="image/*" capture="environment" style="display:none">
+  <form id="scanForm">
+    <label>Barcode</label>
+    <input id="barcode" required>
+
+    <label>Quantity Taken</label>
+    <input id="quantity" type="number"
+           min="1" step="1" required>
+
+    <label>Description (optional)</label>
+    <input id="description">
+
+    <button id="submitButton" type="submit">
+      Submit Inventory
+    </button>
+  </form>
+
+  <p id="status" role="status"></p>
+
+  <script>
+    let scanner;
+
+    async function startScanner() {
+      const status = document.getElementById('status');
+      status.textContent = 'Opening camera...';
+
+      try {
+        if (!window.Html5Qrcode) {
+          throw new Error('Scanner library unavailable.');
+        }
+
+        if (!scanner) {
+          scanner = new Html5Qrcode('reader');
+        }
+
+        await scanner.start(
+          { facingMode: 'environment' },
+          { fps: 10, qrbox: { width: 250, height: 150 } },
+          async (code) => {
+            document.getElementById('barcode').value = code;
+            status.textContent = 'Barcode captured.';
+            try {
+              await scanner.stop();
+            } catch (e) {}
+          },
+          () => {}
+        );
+        status.textContent = 'Point camera at barcode.';
+      } catch (error) {
+        status.textContent =
+          'Camera unavailable. Enter barcode manually. ' +
+          String(error);
+      }
+    }
+document.getElementById('barcodePhoto')
+  .addEventListener('change', async function(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const status = document.getElementById('status');
+    status.textContent = 'Reading barcode...';
+
+    try {
+      if (!window.Html5Qrcode) {
+        throw new Error('Barcode reader unavailable.');
+      }
+
+      const reader = new Html5Qrcode('reader', {
+  formatsToSupport: [
+    Html5QrcodeSupportedFormats.CODE_128,
+    Html5QrcodeSupportedFormats.CODE_39,
+    Html5QrcodeSupportedFormats.UPC_A,
+    Html5QrcodeSupportedFormats.UPC_E,
+    Html5QrcodeSupportedFormats.EAN_13,
+    Html5QrcodeSupportedFormats.EAN_8
+  ]
+});
+      const barcode = await reader.scanFile(file, true);
+
+      document.getElementById('barcode').value = barcode;
+      status.textContent = 'Barcode captured successfully.';
+    } catch (error) {
+     status.textContent = 'Barcode error: ' + (error?.message || String(error));
+console.error('Barcode scanning error:', error);
+    }
+
+    event.target.value = '';
+  });
+    document.getElementById('scanForm')
+      .addEventListener('submit', function(event) {
+        event.preventDefault();
+
+        const button = document.getElementById('submitButton');
+        const status = document.getElementById('status');
+        button.disabled = true;
+        status.textContent = 'Submitting...';
+
+        const data = {
+  barcode: document.getElementById('barcode').value,
+  quantity: document.getElementById('quantity').value,
+  description: document.getElementById('description').value
+};
+
+const url = 'https://script.google.com/macros/s/AKfycbx8tgjqZkl2QG_9lM80-tew6J-6eJWVqWzk0homLQBAEwSDPP-1XJSarvqjVJ1B5cBk4Q/exec';
+
+fetch(url, {
+  method: 'POST',
+  mode: 'no-cors',
+  headers: {
+    'Content-Type': 'text/plain'
+  },
+  body: JSON.stringify(data)
+})
+.then(() => {
+  status.textContent = 'Submission sent. Check the Google Sheet to confirm.';
+  button.disabled = false;
+})
+.catch(error => {
+  status.textContent = 'Submission failed: ' + error.message;
+  button.disabled = false;
+});
+      });
+  </script>
+</body>
+</html>
